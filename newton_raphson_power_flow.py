@@ -13,7 +13,6 @@ import pandas as pd
 import copy
 
 # Controles
-ativa_controles = True
 Controle_CTAP = True # Nota: Pode ser iniciada como false, e depois alterada para true quando estiver próxima da convergência
 
 # # ----------------------------------------------------------------------
@@ -292,7 +291,7 @@ Pbase = 100  # Potência base típica para o sistema IEEE 14 barras
 # ----------------------------------------------------------------------
 # Tolerância para critério de convergência
 # ----------------------------------------------------------------------
-tol = 0.01  # em pu
+tol = 0.01/Pbase  # em pu
 
 
 def print_jacobiana_bonita(J, casas_decimais=4):
@@ -564,8 +563,43 @@ def atualiza_taps(TAPS, delta_SOLUCAO, LC, NBAR):
 
     return TAPS
 
+def relatorio_transformadores(DE, PARA, FLUXO, TAP, LC, nomes_barras=None):
+    """
+    Imprime um relatório no estilo ANAREDE para transformadores/linhas com tap.
 
-def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_max = 20):
+    Parâmetros:
+    - DE, PARA: listas de barras de origem e destino
+    - FLUXO: matriz com colunas [Pkm, Pmk, Pkm_max, folga, fluxo_utilizado, Qkm]
+    - TAP: vetor de taps atuais
+    - LC: lista de barras controladas (None se não houver controle)
+    - nomes_barras: lista com nomes das barras (opcional)
+    """
+
+    print("\nRELATÓRIO DE TRANSFORMADORES COM CONTROLE DE TAP")
+    print("X-------X-----------------X-----X-----------------X-----X-------X-------X--------X")
+    print(" DE     NOME_ORIGEM       NC    PARA   NOME_DESTINO     MW     Mvar    MVA     TAP  TIPO")
+    print("X-------X-----------------X-----X-----------------X-----X-------X-------X--------X")
+
+    for k in range(len(DE)):
+        de = DE[k]
+        para = PARA[k]
+        nome_de = nomes_barras[de - 1] if nomes_barras else f"Barra-{de:02d}"
+        nome_para = nomes_barras[para - 1] if nomes_barras else f"Barra-{para:02d}"
+
+        pkm = FLUXO[k, 0]
+        qkm = FLUXO[k, 5] if FLUXO.shape[1] > 5 else 0.0
+        mva = (pkm**2 + qkm**2)**0.5
+        tap = TAP[k]
+        tipo = "*" if LC[k] is not None else "F"  # * para variável, F para fixo
+
+        print(f" {de:<7} {nome_de:<17} 1     {para:<5} {nome_para:<17} {pkm:7.1f} {qkm:7.1f} {mva:7.1f}  {tap:6.3f}   {tipo:>2}")
+
+    print("X-------X-----------------X-----X-----------------X-----X-------X-------X--------X")
+    return
+
+
+def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_max = 20, printar_relatorio=True):
+    tolerancia_tensao = tolerancia/10
     # Número de barras (NBAR)
     NBAR = len(DBAR)  # número de linhas da lista DBAR
 
@@ -614,7 +648,7 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
     NCV = sum(1 for barra in BC if barra is not None)
 
     # Matriz de Fluxo nas Linhas (5 colunas)
-    FLUXO = np.zeros((NLIN, 5))
+    FLUXO = np.zeros((NLIN, 6))  # Adiciona uma coluna extra para o fluxo reativo
     FLUXO[:, 2] = np.array([linha[12] if len(linha) > 14 else 0 for linha in DLIN])  # PkmMAX
 
     # Inicialização
@@ -623,7 +657,6 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
     convergiu = False  # Flag para verificar divergência
 
     while not convergiu and i < (iteracao_max+1):
-        print("Iniciando iteracao ", i)
         # Tensões em coordenadas retangulares (TETA em radianos)
         x = V * np.cos(TETA)
         y = V * np.sin(TETA)
@@ -668,21 +701,45 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
 
         # Vetor de resíduos (coluna)
         delta_Y = np.concatenate([delta_P, delta_Q]).reshape(-1, 1)
-        delta_Y = adiciona_controles_delta_y(delta_Y, V, V_ESP, LC)
+        if Controle_CTAP:
+            # delta_Y = adiciona_controles_delta_y(delta_Y, V, V_ESP, LC)
+            taps_controlados = sum(1 for barra in LC if barra is not None)
+            deltaV = np.zeros(taps_controlados)
+
+            for tap_count, barra_controlada in enumerate([b for b in LC if b is not None]):
+                deltaV[tap_count] = V_ESP[barra_controlada - 1] - V[barra_controlada - 1]
+
+            deltaV = deltaV.reshape(-1, 1)
+
+            # Erro máximo (critério de convergência)
+            MAX_V = np.max(np.abs(deltaV))
+            indice_MAX_V = np.argmax(np.abs(deltaV))
+            print('Mismatch máximo está em', MAX_V, 'no item', indice_MAX_V)
 
         # Erro máximo (critério de convergência)
         MAX_Y = np.max(np.abs(delta_Y))
-        # print('Mismatch máximo está em ', MAX_Y)
+        indice_MAX_Y = np.argmax(np.abs(delta_Y))
+        print('Mismatch máximo está em', MAX_Y, 'no item', indice_MAX_Y)
 
         if MAX_Y < tolerancia:
           convergiu = True
-          break
+          if Controle_CTAP:
+            if MAX_V < tolerancia_tensao:
+                convergiu = True
+                break
+            else:
+                break
+
+        if Controle_CTAP:
+            delta_Y = np.concatenate([delta_Y, deltaV]).reshape(-1, 1)
 
         i += 1  # Incrementa o contador de iterações
+        print("Iniciando iteracao ", i)
 
         # Matriz Jacobiana
         Jac = montar_matriz_jacobiana(NBAR, V, TETA, Pcalc, Qcalc, G, B, TIPO)
-        Jac = adicionar_controles_jacobiana(NBAR, Jac, V, TETA, G, B, TIPO, TAP, DE, PARA, BC, LC)
+        if Controle_CTAP:
+            Jac = adicionar_controles_jacobiana(NBAR, Jac, V, TETA, G, B, TIPO, TAP, DE, PARA, BC, LC)
 
         # NOTA:
         # PENSO EM TALVEZ ADICIONAR INFORMAÇÕES APÓS MONTAR A JACOBIANA PADRÃO
@@ -701,37 +758,52 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         TETA += delta_SOLUCAO[0:NBAR]            # primeiros NBAR elementos são delta_TETA
         V += delta_SOLUCAO[NBAR:2*NBAR]             # próximos NBAR elementos são delta_V
 
-        TAP = atualiza_taps(TAP, delta_SOLUCAO, LC, NBAR)
+        if Controle_CTAP:
+            TAP = atualiza_taps(TAP, delta_SOLUCAO, LC, NBAR)
 
     for k in range(NLIN):
-        K = DE[k]-1
-        M = PARA[k]-1
+        K = DE[k] - 1
+        M = PARA[k] - 1
 
-        delta = (TETA[K] - TETA[M]) + DEFAS[k]
+        tap = TAP[k] if TAP[k] != 0 else 1.0
+        defas = DEFAS[k]
 
-        fluxo_1 = -(
-            (TAP[k] * V[K])**2 * G[K, M]
-            - (TAP[k] * V[K]) * V[M] * (G[K, M] * np.cos(delta) + B[K, M] * np.sin(delta))
-        ) * Pbase
+        Vk = V[K]
+        Vm = V[M]
+        teta_k = TETA[K]
+        teta_m = TETA[M]
+        gkm = G[K, M]
+        bkm = B[K, M]
+        bsh = BSH[k]
 
-        delta = (TETA[M] - TETA[K]) + DEFAS[k]  # Inverte ângulo
+        delta_km = (teta_k - teta_m) + defas
+        delta_mk = (teta_m - teta_k) + defas
 
-        fluxo_2 = -(
-            (TAP[k] * V[M])**2 * G[M, K]
-            - (TAP[k] * V[M]) * V[K] * (G[M, K] * np.cos(delta) + B[M, K] * np.sin(delta))
-        ) * Pbase
+        # Fluxo de potência ativa
+        fluxo_1 = -(tap * Vk)**2 * gkm + tap * Vk * Vm * (gkm * np.cos(delta_km) + bkm * np.sin(delta_km))
+        fluxo_2 = -(tap * Vm)**2 * gkm + tap * Vm * Vk * (gkm * np.cos(delta_mk) + bkm * np.sin(delta_mk))
 
+        # Fluxo de potência reativa
+        reat_1 = -(tap**2) * (bsh + bkm) * Vk**2 + tap * Vk * Vm * (bkm * np.cos(delta_km) - gkm * np.sin(delta_km))
+        reat_2 = -(tap**2) * (bsh + bkm) * Vm**2 + tap * Vm * Vk * (bkm * np.cos(delta_mk) - gkm * np.sin(delta_mk))
 
-        FLUXO[k, 0] = fluxo_1  # coluna 1 (Python index 0)
-        FLUXO[k, 1] = fluxo_2  # coluna 2 (Python index 1)
+        # Conversão para base real (MW, MVAr)
+        fluxo_1 *= Pbase
+        fluxo_2 *= Pbase
+        reat_1 *= Pbase
+        reat_2 *= Pbase
 
-        if fluxo_1 > fluxo_2:
-            FLUXO[k, 3] = FLUXO[k, 2] - abs(fluxo_1)  # coluna 4 = coluna 3 - |fluxo_1|
-            FLUXO[k, 4] = abs(fluxo_1)                 # coluna 5 = |fluxo_1|
+        FLUXO[k, 0] = fluxo_1  # Pkm
+        FLUXO[k, 1] = fluxo_2  # Pmk
+
+        if abs(fluxo_1) >= abs(fluxo_2):
+            FLUXO[k, 3] = FLUXO[k, 2] - abs(fluxo_1)
+            FLUXO[k, 4] = abs(fluxo_1)
+            FLUXO[k, 5] = reat_1  # fluxo reativo direto
         else:
-            FLUXO[k, 3] = FLUXO[k, 2] - abs(fluxo_2)  # coluna 4 = coluna 3 - |fluxo_2|
-            FLUXO[k, 4] = abs(fluxo_2)                 # coluna 5 = |fluxo_2|
-
+            FLUXO[k, 3] = FLUXO[k, 2] - abs(fluxo_2)
+            FLUXO[k, 4] = abs(fluxo_2)
+            FLUXO[k, 5] = reat_2  # fluxo reativo reverso
 
     if not convergiu:
         print('O caso Divergiu')
@@ -739,11 +811,11 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         print('='*108)
         print(f'- Número de Iterações: {i}')
         print('='*108)
-        print(f'- Resíduo Máximo: {MAX_Y:.10f} < Tolerância de {tolerancia:.6f}')
+        print(f'- Resíduo Máximo: {MAX_Y:.6g} < Tolerância de {tolerancia:.3f}')
         print('='*108)
         print('- Dados Finais de Barra (pu):\n')
-        print(f'\t{"Nº":<4}\t{"Tipo":<6}\t{"Tensão":<7}\t{"Angulo(º)":<10}\t{"PG":<10}\t{"QG":<10}\t{"Qmín":<10}\t{"Qmáx":<10}\t{"Pdemanda":<10}\t{"Qdemanda":<10}')
-
+        print(f'{"Nº":>2} {"Tipo":>4} {"V":>6} {"Ang(°)":>8} {"PG":>8} {"QG":>8} {"Qmín":>8} {"Qmáx":>8} {"Pd":>8} {"Qd":>8}')
+       
         # Monta matriz de dados para impressão
         dados_barra = np.column_stack((
             np.arange(1, NBAR+1),              # Nº
@@ -760,7 +832,9 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
 
         # Imprime linha a linha formatada
         for linha in dados_barra:
-            print(f'\t{int(linha[0]):<4}\t{int(linha[1]):<6}\t{linha[2]:<7.4f}\t{linha[3]:<10.2f}\t{linha[4]:<10.4f}\t{linha[5]:<10.4f}\t{linha[6]:<10.4f}\t{linha[7]:<10.4f}\t{linha[8]:<10.4f}\t{linha[9]:<10.4f}')
+            print(f'\t{int(linha[0]):<4}\t{int(linha[1]):<6}\t{linha[2]:<7.3f}\t{linha[3]:<10.1f}\t'
+                f'{linha[4]:<10.1f}\t{linha[5]:<10.1f}\t{linha[6]:<10.1f}\t{linha[7]:<10.1f}\t'
+                f'{linha[8]:<10.1f}\t{linha[9]:<10.1f}')
 
         print('='*108)
         print('Fluxo de Potência Ativa entre as Barras')
@@ -772,6 +846,10 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
             print(f'\t{int(DE[i]):<6}\t{int(PARA[i]):<6}\t{FLUXO[i,0]:<10.4f}\t{FLUXO[i,1]:<10.4f}\t{FLUXO[i,2]:<10.4f}\t{FLUXO[i,3]:<10.4f}')
 
         print('='*108)
+
+        if printar_relatorio:
+            nomes = [f"Barra-{i+1:02d}" for i in range(NBAR)]
+            relatorio_transformadores(DE, PARA, FLUXO, TAP, LC, nomes_barras=nomes)
 
     return V, TETA, FLUXO
 
