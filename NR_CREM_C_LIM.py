@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import copy
 
-Controle_REM = False #ativa/desativa controle remoto de tensão - Utilizado em Newton_raphson após declaração de QBAR
-Controle_PV = False #True = ativado; Falso=desativado (Exceto barras de controle remoto de tensão).
+Controle_REM = True #ativa/desativa controle remoto de tensão - Utilizado em Newton_raphson após declaração de QBAR
+Controle_PV = True #True = ativado; Falso=desativado (Exceto barras de controle remoto de tensão).
 
 Pbase = 100  # Potência base típica para o sistema IEEE 14 barras
 tol = 0.01/Pbase  # em pu
