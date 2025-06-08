@@ -292,6 +292,7 @@ Pbase = 100  # Potência base típica para o sistema IEEE 14 barras
 # Tolerância para critério de convergência
 # ----------------------------------------------------------------------
 tol = 0.01/Pbase  # em pu
+tol = 0.01
 
 
 def print_jacobiana_bonita(J, casas_decimais=4):
@@ -666,11 +667,6 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         Pesp = PG - PD
         Qesp = QG - QD
 
-        # if proximo_convergencia:
-        #     Controle_CTAP = True
-        # else:
-        #     Controle_CTAP = False
-
         # Montagem da matriz Ybarra, somente se na primeira iteração ou se houver algum controle ativo
         Ybarra, G, B = montar_ybarra(NBAR, NLIN, DE, PARA, R, X, BSH, TAP, DEFAS, SHUNT)
 
@@ -721,13 +717,13 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         indice_MAX_Y = np.argmax(np.abs(delta_Y))
         print('Mismatch máximo está em', MAX_Y, 'no item', indice_MAX_Y)
 
-        if MAX_Y < tolerancia:
-          convergiu = True
-          if Controle_CTAP:
-            if MAX_V < tolerancia_tensao:
+        if not Controle_CTAP:
+            if MAX_Y < tolerancia:
                 convergiu = True
                 break
-            else:
+        else:
+            if MAX_Y < tolerancia and MAX_V < tolerancia_tensao:
+                convergiu = True
                 break
 
         if Controle_CTAP:

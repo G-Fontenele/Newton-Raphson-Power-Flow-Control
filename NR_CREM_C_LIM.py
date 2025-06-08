@@ -4,7 +4,7 @@ import pandas as pd
 import copy
 
 Controle_REM = True #ativa/desativa controle remoto de tensão - Utilizado em Newton_raphson após declaração de QBAR
-Controle_PV = True #True = ativado; Falso=desativado (Exceto barras de controle remoto de tensão).
+Controle_PV = False #True = ativado; Falso=desativado (Exceto barras de controle remoto de tensão).
 
 Pbase = 100  # Potência base típica para o sistema IEEE 14 barras
 tol = 0.01/Pbase  # em pu
@@ -75,6 +75,23 @@ DBAR = [
     [12, 0, 1.070, 0.0,  0.0,   0.0, -999, 999, None,   6.1,   1.6,  0.0, 1, None],
     [13, 0, 1.050, 0.0,  0.0,   0.0, -999, 999, None,  13.5,   5.8,  0.0, 1, None],
     [14, 0, 1.036, 0.0,  0.0,   0.0, -999, 999, None,  14.9,   5.0,  0.0, 1, None]
+]
+
+DBAR = [
+    [1, 2, 1.0, 0.0,   232.4, -16.9, -999, 999, None,   0.0,   0.0,   0.0, 1, None],
+    [2, 1, 1.0, 0.0,   40.0,  42.4, -40.0, 50.0, None, 21.7,  12.7,  0.0, 1, None],
+    [3, 1, 1.0, 0.0,   0.0,  23.4,   0.0, 40.0, None, 94.2,  19.0,  0.0, 1, None],
+    [4, 0, 1.0, 0.0,   0.0,   0.0, -999, 999, None,  47.8,  -3.9,  0.0, 1, None],
+    [5, 0, 1.0, 0.0,    0.0,   0.0, -999, 999, None,   7.6,   1.6,  0.0, 1, None],
+    [6, 1, 1.0, 0.0,   0.0,  12.2,  -6, 24, 12, 11.2,   7.5,  0.0, 1, None],
+    [7, 0, 1.000, 0.0,   0.0,   0.0, -999, 999, None,   0.0,   0.0,  0.0, 1, None],
+    [8, 1, 1.0, 0.0,   0.0,  17.4,  -6, 24, 7,  0.0,   0.0,  0.0, 1, None],
+    [9, 0, 1.0, 0.0,   0.0,   0.0, -999, 999, None,  29.5,  16.6, 19.0, 1, None],
+    [10, 0, 1.0, 0.0,  0.0,   0.0, -999, 999, None,   9.0,   5.8,  0.0, 1, None],
+    [11, 0, 1.0, 0.0,  0.0,   0.0, -999, 999, None,   3.5,   1.8,  0.0, 1, None],
+    [12, 0, 1.070, 0.0,  0.0,   0.0, -999, 999, None,   6.1,   1.6,  0.0, 1, None],
+    [13, 0, 1.0, 0.0,  0.0,   0.0, -999, 999, None,  13.5,   5.8,  0.0, 1, None],
+    [14, 0, 1.0, 0.0,  0.0,   0.0, -999, 999, None,  14.9,   5.0,  0.0, 1, None]
 ]
 
 # ----------------------------------------------------------------------
