@@ -432,7 +432,6 @@ def adiciona_controles_delta_y(DELTA_Y, V, V_CONTROLADA, LC):
 
     for tap_count, barra_controlada in enumerate([b for b in LC if b is not None]):
         idx = len(deltaY) - taps_controlados + tap_count
-        print("TEnsaõ cal", V[barra_controlada - 1])
         deltaY[idx] = V_CONTROLADA[barra_controlada - 1] - V[barra_controlada - 1]
 
     return deltaY.reshape(-1, 1)  # Retorna como vetor coluna
@@ -487,11 +486,6 @@ def adicionar_controles_jacobiana(NBAR, JACOBIANA, V, TETA, G, B, TIPO, TAP, DE,
 
             barra_k = DE[k]-1
             barra_m = PARA[k]-1
-
-            print("Analisando barra controlada: ", barra_controlada)
-            print("Conexão de trafo \n")
-            print("De: ", barra_k+1)
-            print("Para: ", barra_m+1)
 
             # Dados elétricos da linha
             gkm = G[barra_k, barra_m]
@@ -556,10 +550,11 @@ def atualiza_taps(TAPS, delta_SOLUCAO, LC, NBAR):
     - TAPS atualizado
     """
     taps_controlados_idx = [i for i, barra in enumerate(LC) if barra is not None]
-    print(taps_controlados_idx)
+    taps_controlados = len(taps_controlados_idx)
 
     for pos, idx_tap in enumerate(taps_controlados_idx):
-        TAPS[idx_tap] += delta_SOLUCAO[2*NBAR + pos]
+        idx = len(delta_SOLUCAO) - taps_controlados + pos
+        TAPS[idx_tap] += delta_SOLUCAO[idx]
         print(f"Tap {idx_tap} atualizado para {TAPS[idx_tap]}")
 
     return TAPS
@@ -698,36 +693,31 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         # Vetor de resíduos (coluna)
         delta_Y = np.concatenate([delta_P, delta_Q]).reshape(-1, 1)
         if Controle_CTAP:
-            # delta_Y = adiciona_controles_delta_y(delta_Y, V, V_ESP, LC)
-            taps_controlados = sum(1 for barra in LC if barra is not None)
-            deltaV = np.zeros(taps_controlados)
+            delta_Y = adiciona_controles_delta_y(delta_Y, V, V_ESP, LC)
+            # taps_controlados = sum(1 for barra in LC if barra is not None)
+            # deltaV = np.zeros(taps_controlados)
 
-            for tap_count, barra_controlada in enumerate([b for b in LC if b is not None]):
-                deltaV[tap_count] = V_ESP[barra_controlada - 1] - V[barra_controlada - 1]
+            # for tap_count, barra_controlada in enumerate([b for b in LC if b is not None]):
+            #     deltaV[tap_count] = V_ESP[barra_controlada - 1] - V[barra_controlada - 1]
 
-            deltaV = deltaV.reshape(-1, 1)
+            # deltaV = deltaV.reshape(-1, 1)
 
-            # Erro máximo (critério de convergência)
-            MAX_V = np.max(np.abs(deltaV))
-            indice_MAX_V = np.argmax(np.abs(deltaV))
-            print('Mismatch máximo está em', MAX_V, 'no item', indice_MAX_V)
+            # # Erro máximo (critério de convergência)
+            # MAX_V = np.max(np.abs(deltaV))
+            # indice_MAX_V = np.argmax(np.abs(deltaV))
+            # print('Mismatch máximo está em', MAX_V, 'no item', indice_MAX_V)
 
         # Erro máximo (critério de convergência)
         MAX_Y = np.max(np.abs(delta_Y))
         indice_MAX_Y = np.argmax(np.abs(delta_Y))
         print('Mismatch máximo está em', MAX_Y, 'no item', indice_MAX_Y)
 
-        if not Controle_CTAP:
-            if MAX_Y < tolerancia:
-                convergiu = True
-                break
-        else:
-            if MAX_Y < tolerancia and MAX_V < tolerancia_tensao:
-                convergiu = True
-                break
+        if MAX_Y < tolerancia:
+            convergiu = True
+            break
 
-        if Controle_CTAP:
-            delta_Y = np.concatenate([delta_Y, deltaV]).reshape(-1, 1)
+        # if Controle_CTAP:
+        #     delta_Y = np.concatenate([delta_Y, deltaV]).reshape(-1, 1)
 
         i += 1  # Incrementa o contador de iterações
         print("Iniciando iteracao ", i)
@@ -736,13 +726,6 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         Jac = montar_matriz_jacobiana(NBAR, V, TETA, Pcalc, Qcalc, G, B, TIPO)
         if Controle_CTAP:
             Jac = adicionar_controles_jacobiana(NBAR, Jac, V, TETA, G, B, TIPO, TAP, DE, PARA, BC, LC)
-
-        # NOTA:
-        # PENSO EM TALVEZ ADICIONAR INFORMAÇÕES APÓS MONTAR A JACOBIANA PADRÃO
-        # ELA SEMPRE TERÁ SEU PADRÃO IGUAL, SÓ ALTERADO PELA Y BARRA QUE JÁ FOI ALTERADA ANTES
-        # DESSA FORMA, PODEMOS SEMPRE ADICIONAR OS CONTROLES EM SEGUIDA
-        # TALVEZ COM UMA FUNÇÃO adicionar_controles_jacobiana
-        # Também deve ser adicionado um valor ao delta_y
 
         # delta_Y deve ser um vetor coluna numpy com dimensão (2*NBAR, 1)
         # Jac é a matriz Jacobiana 2*NBAR x 2*NBAR
@@ -754,6 +737,8 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         TETA += delta_SOLUCAO[0:NBAR]            # primeiros NBAR elementos são delta_TETA
         V += delta_SOLUCAO[NBAR:2*NBAR]             # próximos NBAR elementos são delta_V
 
+        print(len(delta_SOLUCAO[0:NBAR] ))
+        print(delta_SOLUCAO[NBAR:2*NBAR])
         if Controle_CTAP:
             TAP = atualiza_taps(TAP, delta_SOLUCAO, LC, NBAR)
 
