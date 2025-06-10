@@ -510,9 +510,10 @@ def adicionar_controles_jacobiana(NBAR, JACOBIANA, V, TETA, G, B, TIPO, TAP, DE,
 
             # Cálculo das derivadas
             dPk_da = 2 * tap * Vk**2 * gkm - Vk * Vm * (gkm * np.cos(teta_k - teta_m) + bkm * np.sin(teta_k - teta_m))
-            dPm_da = -Vk * Vm * (gkm * np.cos(teta_m - teta_k) + bkm * np.sin(teta_m - teta_k))
             dQk_da = -2 * tap * Vk**2 * bkm + Vk * Vm * (bkm * np.cos(teta_k - teta_m) - gkm * np.sin(teta_k - teta_m))
-            dQm_da = Vk * Vm * (bkm * np.cos(teta_m - teta_k) - gkm * np.sin(teta_m - teta_k))
+
+            dPm_da = -Vk * Vm * (gkm * np.cos(teta_m - teta_k) - bkm * np.sin(teta_m - teta_k)) #troquei o sinal de +bkm para -bkm 
+            dQm_da = Vk * Vm * (bkm * np.cos(teta_m - teta_k) + gkm * np.sin(teta_m - teta_k))#troquei o sinal de -gkm para +gkm
 
             # Preenchimento na Jacobiana
             # dPk/da
@@ -737,8 +738,6 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         TETA += delta_SOLUCAO[0:NBAR]            # primeiros NBAR elementos são delta_TETA
         V += delta_SOLUCAO[NBAR:2*NBAR]             # próximos NBAR elementos são delta_V
 
-        print(len(delta_SOLUCAO[0:NBAR] ))
-        print(delta_SOLUCAO[NBAR:2*NBAR])
         if Controle_CTAP:
             TAP = atualiza_taps(TAP, delta_SOLUCAO, LC, NBAR)
 
