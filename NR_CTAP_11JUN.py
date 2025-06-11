@@ -15,205 +15,6 @@ import copy
 # Controles
 Controle_CTAP = True # Nota: Pode ser iniciada como false, e depois alterada para true quando estiver próxima da convergência
 
-# # ----------------------------------------------------------------------
-# # DBAR: Dados das barras do sistema elétrico (formato de lista de listas)
-# # Cada sublista representa uma barra com seus parâmetros:
-# # ----------------------------------------------------------------------
-# # [
-# #   número da barra (int),
-# #   tipo da barra (int):
-# #       0 = PQ (barra de carga),
-# #       1 = PV (barra geradora),
-# #       2 = barra swing (barra slack),
-# #   tensão nominal (pu) (float),
-# #   ângulo da tensão (graus ou radianos dependendo do contexto) (float),
-# #   potência ativa gerada Pg (pu) (float),
-# #   potência reativa gerada Qg (pu) (float),
-# #   potência reativa mínima Qmin (pu) (float),
-# #   potência reativa máxima Qmax (pu) (float),
-# #   barra controlada (int ou None): barra associada para controle de tensão (exemplo: para barras PV),
-# #   potência ativa da carga Pl (pu) (float),
-# #   potência reativa da carga Ql (pu) (float),
-# #   potência da injeção do gerador Sh (pu) (float), se aplicável,
-# #   área de controle ou área elétrica (int ou None),
-# #   fator de tensão Vf (float ou None): fator usado em alguns modelos de tensão
-# # ]
-# DBAR = [
-#     [1, 2, 1.00, 0, 0, 0, -999, 999, None, 0, 0, 0, None, None],
-#     [2, 0, 1.00, 0, 0, 0, -999, 999, None, 0.472, -0.07, 0, None]
-# ]
-
-# # ----------------------------------------------------------------------
-# # DLIN: Dados das linhas de transmissão (formato de lista de listas)
-# # Cada sublista representa uma linha com seus parâmetros:
-# # ----------------------------------------------------------------------
-# # [
-# #   barra "de" (int): barra inicial da linha,
-# #   barra "para" (int): barra final da linha,
-# #   circuito (int ou None): identificador de circuito da linha,
-# #   resistência R (ohms ou pu) (float),
-# #   reatância X (ohms ou pu) (float),
-# #   susceptância de linha Mvar (float),
-# #   tap (float): relação do transformador de tensão / tap changer,
-# #   Tmin (float ou None): valor mínimo permitido do tap,
-# #   Tmax (float ou None): valor máximo permitido do tap,
-# #   fase (float): ângulo de fase do transformador ou linha,
-# #   Bc (float ou None): susceptância de linha em shunt,
-# #   Cn (float ou None): parâmetro adicional (exemplo, capacidade nominal),
-# #   Ce (float ou None): parâmetro adicional (exemplo, capacidade emergencial),
-# #   Ns (int ou None): número de subconjuntos ou circuitos paralelos
-# # ]
-# DLIN = [
-#     [1, 2, None, 20, 100, 0.04, 1, None, None, 0, None, None, 0, None]
-# ]
-
-# # ----------------------------------------------------------------------
-# # Pbase: Potência base do sistema (em MW ou pu, conforme contexto)
-# # Usada para normalizar as potências no sistema, facilitando cálculos.
-# Pbase = 1
-
-# # ----------------------------------------------------------------------
-# # tol: Tolerância para critério de convergência do método (resíduo máximo
-# # aceito para potência ativa e reativa, por exemplo em MW ou pu)
-# # Quando os resíduos ficarem abaixo dessa tolerância, o método para.
-# tol = 0.003  # Critério de convergência para delta P e delta Q
-
-# '''
-# Sistema IEEE 30 Barras
-# Dados das linhas de transmissão - Matriz DLIN
-
-# Cada linha contém:
-# [De, Para, R (pu), X (pu), Bshunt (pu), Tap, Defasagem (graus), PkmMAX (MW)]
-
-# Descrição dos campos:
-# - De, Para         : Barras de origem e destino
-# - R (pu)           : Resistência em pu referenciada à base do sistema
-# - X (pu)           : Reatância em pu referenciada à base do sistema
-# - Bshunt (pu)      : Susceptância total de linha (1/2 em cada extremidade)
-# - Tap              : Tap do transformador (1.0 se não houver)
-# - Defasagem (°)    : Defasagem angular em graus (0 se não houver defasador)
-# - PkmMAX (MW)      : Capacidade limite de fluxo ativo na linha (MW)
-
-# Observações:
-# - Linhas sem transformadores possuem Tap = 1.0 e Defasagem = 0.
-# - Valores de R, X e Bshunt estão normalizados em pu.
-# - PkmMAX pode ser usado para restrições térmicas ou análise de contingências.
-# '''
-
-# # ----------------------------------------------------------------------
-# # DBAR: Dados das barras do sistema elétrico
-# # Cada entrada: [número, tipo, V (pu), ângulo (°), Pg (MW), Qg (MVAr), Qmin, Qmax, barra controlada,
-# #                Pl (MW), Ql (MVAr), Sh (MW), área, fator de tensão Vf]
-# # ----------------------------------------------------------------------
-
-# DBAR = [
-#     [1, 2, 1.060, 0.0,   260.2, -16.1, 0.0, 0.0, None,   0.0,   0.0,  0.0, 1, None],
-#     [2, 1, 1.043, -5.0,   40.0,  50.0, -40.0, 50.0, None, 21.7,  12.7, 0.0, 1, None],
-#     [3, 0, 1.021, -7.0,    0.0,   0.0, 0.0, 0.0, None,    2.4,   1.2, 0.0, 1, None],
-#     [4, 0, 1.012, -9.0,    0.0,   0.0, 0.0, 0.0, None,    7.6,   1.6, 0.0, 1, None],
-#     [5, 1, 1.010, -14.0,   0.0,  37.0, -40.0, 40.0, None, 94.2,  19.0, 0.0, 1, None],
-#     [6, 0, 1.010, -11.0,   0.0,   0.0, 0.0, 0.0, None,    0.0,   0.0, 0.0, 1, None],
-#     [7, 0, 1.002, -13.0,   0.0,   0.0, 0.0, 0.0, None,   22.8,  10.9, 0.0, 1, None],
-#     [8, 1, 1.010, -12.0,   0.0,  37.3, -10.0, 40.0, None, 30.0,  30.0, 0.0, 1, None],
-#     [9, 0, 1.051, -14.0,   0.0,   0.0, 0.0, 0.0, None,    0.0,   0.0, 0.0, 1, None],
-#     [10,0, 1.045, -15.0,   0.0,   0.0, 0.0, 0.0, None,    5.8,   2.0,19.0, 1, None],
-#     [11,1, 1.082, -14.0,   0.0,  16.2, -6.0, 24.0, None,  0.0,   0.0, 0.0, 1, None],
-#     [12,0, 1.057, -15.0,   0.0,   0.0, 0.0, 0.0, None,   11.2,   7.5, 0.0, 1, None],
-#     [13,1, 1.071, -15.0,   0.0,  10.6, -6.0, 24.0, None,  0.0,   0.0, 0.0, 1, None],
-#     [14,0, 1.042, -16.0,   0.0,   0.0, 0.0, 0.0, None,    6.2,   1.6, 0.0, 1, None],
-#     [15,0, 1.038, -16.0,   0.0,   0.0, 0.0, 0.0, None,    8.2,   2.5, 0.0, 1, None],
-#     [16,0, 1.045, -15.0,   0.0,   0.0, 0.0, 0.0, None,    3.5,   1.8, 0.0, 1, None],
-#     [17,0, 1.040, -16.0,   0.0,   0.0, 0.0, 0.0, None,    9.0,   5.8, 0.0, 1, None],
-#     [18,0, 1.028, -16.0,   0.0,   0.0, 0.0, 0.0, None,    3.2,   0.9, 0.0, 1, None],
-#     [19,0, 1.026, -17.0,   0.0,   0.0, 0.0, 0.0, None,    9.5,   3.4, 0.0, 1, None],
-#     [20,0, 1.030, -16.0,   0.0,   0.0, 0.0, 0.0, None,    2.2,   0.7, 0.0, 1, None],
-#     [21,0, 1.033, -16.0,   0.0,   0.0, 0.0, 0.0, None,   17.5,  11.2, 0.0, 1, None],
-#     [22,0, 1.033, -16.0,   0.0,   0.0, 0.0, 0.0, None,    0.0,   0.0, 0.0, 1, None],
-#     [23,0, 1.027, -16.0,   0.0,   0.0, 0.0, 0.0, None,    3.2,   1.6, 0.0, 1, None],
-#     [24,0, 1.021, -16.0,   0.0,   0.0, 0.0, 0.0, None,    8.7,   6.7, 4.3, 1, None],
-#     [25,0, 1.017, -16.0,   0.0,   0.0, 0.0, 0.0, None,    0.0,   0.0, 0.0, 1, None],
-#     [26,0, 1.000, -16.0,   0.0,   0.0, 0.0, 0.0, None,    3.5,   2.3, 0.0, 1, None],
-#     [27,0, 1.023, -15.0,   0.0,   0.0, 0.0, 0.0, None,    0.0,   0.0, 0.0, 1, None],
-#     [28,0, 1.007, -11.0,   0.0,   0.0, 0.0, 0.0, None,    0.0,   0.0, 0.0, 1, None],
-#     [29,0, 1.003, -17.0,   0.0,   0.0, 0.0, 0.0, None,    2.4,   0.9, 0.0, 1, None],
-#     [30,0, 0.992, -17.0,   0.0,   0.0, 0.0, 0.0, None,   10.6,   1.9, 0.0, 1, None]
-# ]
-
-
-# # ----------------------------------------------------------------------
-# # DLIN: Dados das linhas de transmissão
-# # Cada entrada: [de, para, circuito, R (%), X (%), B (MVAr), tap, Tmin, Tmax, fase, Bc, Cn, Ce, Ns]
-# # ----------------------------------------------------------------------
-# DLIN = [
-#     [1, 2, 1, 1.920, 5.750, 5.280, 1.0, None, None, 0.0, None, None, None, None],
-#     [1, 3, 1, 4.520, 16.520, 4.080, 1.0, None, None, 0.0, None, None, None, None],
-#     [2, 4, 1, 5.700, 17.370, 3.680, 1.0, None, None, 0.0, None, None, None, None],
-#     [3, 4, 1, 1.320, 3.790, 0.840, 1.0, None, None, 0.0, None, None, None, None],
-#     [2, 5, 1, 4.720, 19.830, 4.180, 1.0, None, None, 0.0, None, None, None, None],
-#     [2, 6, 1, 5.810, 17.630, 3.740, 1.0, None, None, 0.0, None, None, None, None],
-#     [4, 6, 1, 1.190, 4.140, 0.900, 1.0, None, None, 0.0, None, None, None, None],
-#     [5, 7, 1, 4.600, 11.600, 2.040, 1.0, None, None, 0.0, None, None, None, None],
-#     [6, 7, 1, 2.670, 8.200, 1.700, 1.0, None, None, 0.0, None, None, None, None],
-#     [6, 8, 1, 1.200, 4.200, 0.900, 1.0, None, None, 0.0, None, None, None, None],
-#     [6, 9, 1, 0.000, 20.800, 0.000, 0.978, None, None, 0.0, None, None, None, None],
-#     [6, 10, 1, 0.000, 55.600, 0.000, 0.969, None, None, 0.0, None, None, None, None],
-#     [9, 11, 1, 0.000, 20.800, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [9, 10, 1, 0.000, 11.000, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [4, 12, 1, 0.000, 25.600, 0.000, 0.932, None, None, 0.0, None, None, None, None],
-#     [12, 13, 1, 0.000, 14.000, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [12, 14, 1, 12.310, 25.590, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [12, 15, 1, 6.620, 13.040, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [12, 16, 1, 9.450, 19.870, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [14, 15, 1, 22.100, 19.970, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [16, 17, 1, 5.240, 19.230, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [15, 18, 1, 10.730, 21.850, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [18, 19, 1, 6.390, 12.920, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [19, 20, 1, 3.400, 6.800, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [10, 20, 1, 9.360, 20.900, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [10, 17, 1, 3.240, 8.450, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [10, 21, 1, 3.480, 7.490, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [10, 22, 1, 7.270, 14.990, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [21, 22, 1, 1.160, 2.360, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [15, 23, 1, 10.000, 20.200, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [22, 24, 1, 11.500, 17.900, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [23, 24, 1, 13.200, 27.000, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [24, 25, 1, 18.850, 32.920, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [25, 26, 1, 25.440, 38.000, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [25, 27, 1, 10.930, 20.870, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [28, 27, 1, 0.000, 39.600, 0.000, 0.968, None, None, 0.0, None, None, None, None],
-#     [27, 29, 1, 21.980, 41.530, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [27, 30, 1, 32.020, 60.270, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [29, 30, 1, 23.990, 45.330, 0.000, 1.0, None, None, 0.0, None, None, None, None],
-#     [8, 28, 1, 6.360, 20.000, 4.280, 1.0, None, None, 0.0, None, None, None, None],
-#     [6, 28, 1, 1.690, 5.990, 1.300, 1.0, None, None, 0.0, None, None, None, None]
-# ]
-
-# Pbase = 100
-# tol = 0.01
-
-'''
-Sistema IEEE 14 Barras
-Dados das linhas de transmissão - Matriz DLIN
-
-Cada linha contém:
-[De, Para, R (pu), X (pu), Bshunt (pu), Tap, Defasagem (graus), PkmMAX (MW)]
-
-Descrição dos campos:
-- De, Para         : Barras de origem e destino
-- R (pu)           : Resistência em pu referenciada à base do sistema
-- X (pu)           : Reatância em pu referenciada à base do sistema
-- Bshunt (pu)      : Susceptância total de linha (1/2 em cada extremidade)
-- Tap              : Tap do transformador (1.0 se não houver)
-- Defasagem (°)    : Defasagem angular em graus (0 se não houver defasador)
-- PkmMAX (MW)      : Capacidade limite de fluxo ativo na linha (MW)
-
-Observações:
-- Linhas sem transformadores possuem Tap = 1.0 e Defasagem = 0.
-- Valores de R, X e Bshunt estão normalizados em pu.
-- PkmMAX pode ser usado para restrições térmicas ou análise de contingências.
-'''
-
-
 # IEEE 14 Bus Test Case - Dados formatados em Python
 # Conversão baseada nos dados fornecidos no formato PWF, com valores percentuais já multiplicados por 100.
 
@@ -222,6 +23,24 @@ Observações:
 # Cada entrada: [número, tipo, V (pu), ângulo (°), Pg (MW), Qg (MVAr), Qmin, Qmax, barra controlada,
 #                Pl (MW), Ql (MVAr), Sh (MW), área, fator de tensão Vf]
 # ----------------------------------------------------------------------
+
+# DBAR = [
+#     [1, 2, 1.060, 0.0,   232.4, -16.3, -999, 999, None,   0.0,   0.0,   0.0, 1, None],
+#     [2, 1, 1.045, 0.0,   40.4,  44.48, -40.0, 50.0, None, 21.7,  12.7,  0.0, 1, None],
+#     [3, 1, 1.010, 0.0,   0.0,  25.67,   0.0, 40.0, None, 94.2,  19.0,  0.0, 1, None],
+#     [4, 0, 1.017, 0.0,   0.0,   0.0, -999, 999, None,  47.8,  -3.9,  0.0, 1, None],
+#     [5, 0, 1.020, 0.0,    0.0,   0.0, -999, 999, None,   7.6,   1.6,  0.0, 1, None],
+#     [6, 1, 1.070, 0.0,   0.0, 11.68,  -6.0, 24.0, None, 11.2,   7.5,  0.0, 1, None],
+#     [7, 0, 1.000, 0.0,   0.0,   0.0, -999, 999, None,   0.0,   0.0,  0.0, 1, None],
+#     [8, 1, 1.090, 0.0,   0.0,  16.68,  -6.0, 24.0, None,  0.0,   0.0,  0.0, 1, None],
+#     [9, 0, 1.060, 0.0,   0.0,   0.0, -999, 999, None,  29.5,  16.6, 19.0, 1, None],
+#     [10, 0, 1.054, 0.0,  0.0,   0.0, -999, 999, None,   9.0,   5.8,  0.0, 1, None],
+#     [11, 0, 1.059, 0.0,  0.0,   0.0, -999, 999, None,   3.5,   1.8,  0.0, 1, None],
+#     [12, 0, 1.070, 0.0,  0.0,   0.0, -999, 999, None,   6.1,   1.6,  0.0, 1, None],
+#     [13, 0, 1.051, 0.0,  0.0,   0.0, -999, 999, None,  13.5,   5.8,  0.0, 1, None],
+#     [14, 0, 1.038, 0.0,  0.0,   0.0, -999, 999, None,  14.9,   5.0,  0.0, 1, None]
+# ]
+
 
 DBAR = [
     [1, 2, 1.060, 0.0,   232.4, -16.3, -999, 999, None,   0.0,   0.0,   0.0, 1, None],
@@ -253,8 +72,8 @@ DLIN = [
     [3, 4, 1, 6.701, 17.103, 1.28, 1.0, None, None, 0.0, None, None, None, None],
     [4, 5, 1, 1.335, 4.211, 0.0, 1.0, None, None, 0.0, None, None, None, None],
     [4, 7, 1, 0.0, 20.912, 0.0, 0.978, None, None, 0.0, None, None, None, None],
-    [4, 9, 1, 0.0, 55.618, 0.0, 0.949, 0.8, 1.2, 0.0, 9, None, None, None],
-    [5, 6, 1, 0.0, 25.202, 0.0, 0.932, 0.8, 1.2, 0.0, 5, None, None, None],
+    [4, 9, 1, 0.0, 55.618, 0.0, 0.969, 0.6, 1.4, 0.0, 9, None, None, None],
+    [5, 6, 1, 0.0, 25.202, 0.0, 0.932, 0.6, 1.4, 0.0, 5, None, None, None],
     [6, 11, 1, 9.498, 19.890, 0.0, 1.0, None, None, 0.0, None, None, None, None],
     [6, 12, 1, 12.291, 25.581, 0.0, 1.0, None, None, 0.0, None, None, None, None],
     [6, 13, 1, 6.615, 13.027, 0.0, 1.0, None, None, 0.0, None, None, None, None],
@@ -275,8 +94,7 @@ Pbase = 100  # Potência base típica para o sistema IEEE 14 barras
 # ----------------------------------------------------------------------
 # Tolerância para critério de convergência
 # ----------------------------------------------------------------------
-tol = 0.01/Pbase  # em pu
-tol = 0.01
+tol = 0.0001/Pbase  # em pu
 
 
 def print_jacobiana_bonita(J, casas_decimais=4):
@@ -416,6 +234,7 @@ def adiciona_controles_delta_y(DELTA_Y, V, V_CONTROLADA, LC):
 
     for tap_count, barra_controlada in enumerate([b for b in LC if b is not None]):
         idx = len(deltaY) - taps_controlados + tap_count
+        print("TEnsaõ cal", V[barra_controlada - 1])
         deltaY[idx] = V_CONTROLADA[barra_controlada - 1] - V[barra_controlada - 1]
 
     return deltaY.reshape(-1, 1)  # Retorna como vetor coluna
@@ -425,99 +244,88 @@ def adicionar_controles_jacobiana(NBAR, JACOBIANA, V, TETA, G, B, TIPO, TAP, DE,
     Adiciona controles de tap variável na matriz Jacobiana.
 
     Parâmetros:
-        V          : vetor de tensões [pu]
-        TETA       : vetor de ângulos [rad]
-        G          : matriz de condutâncias
-        B          : matriz de susceptâncias
-        TIPO       : vetor com tipos de barras (0=PQ, 1=PV, 2=Swing)
-        TAP        : vetor de taps atuais
-        BC         : dicionário ou matriz da Jacobiana já existente
-        LC         : vetor que indica a barra controlada para cada transformador
-                     (None onde não há controle de tap)
+        NBAR        : número de barras
+        JACOBIANA   : matriz Jacobiana original (2NBAR x 2NBAR)
+        V           : vetor de tensões [pu]
+        TETA        : vetor de ângulos [rad]
+        G, B        : matrizes de condutâncias e susceptâncias
+        TIPO        : vetor com tipos de barras (0=PQ, 1=PV, 2=Slack)
+        TAP         : vetor de taps atuais
+        DE, PARA    : vetores de origem/destino das linhas
+        BC          : vetor de barras controladas (não usado diretamente aqui)
+        LC          : vetor com número da barra controlada por cada transformador (None se não houver controle)
 
     Retorna:
-        Jacobiana ampliada (numpy.ndarray)
+        Jacobiana ampliada com colunas e linhas extras para controle de TAP.
     """
 
-    # Número inicial de variáveis
+    taps_ativos_idx = [i for i, b in enumerate(LC) if b is not None]
+
+    # Inicializa Jacobiana ampliada com blocos extras
     nVARIAVEIS = 2 * NBAR
+    nTAPS = len(taps_ativos_idx)
 
-    # Inicializa Jacobiana ampliada (caso BC já exista pode ser passado)
     J = JACOBIANA.copy()
+    zeros_col = np.zeros((J.shape[0], nTAPS))
+    zeros_row = np.zeros((nTAPS, J.shape[1]))
+    zeros_corner = np.zeros((nTAPS, nTAPS))
 
-    # Conta quantos taps controlados existem
-    taps_controlados = sum([1 for barra in LC if barra is not None])
-
-    # Matrizes auxiliares de zeros
-    zeros_col = np.zeros((J.shape[0], taps_controlados))    # Zeros para colunas novas
-    zeros_row = np.zeros((taps_controlados, J.shape[1]))    # Zeros para linhas novas
-    zeros_corner = np.zeros((taps_controlados, taps_controlados))  # Bloco inferior direito (tap x tap)
-
-    # Monta a Jacobiana expandida
     J = np.block([
         [J,         zeros_col],
         [zeros_row, zeros_corner]
     ])
 
-    # Índice inicial para taps (após todas as variáveis de θ e V_PQ)
-    idx_tap_inicial = nVARIAVEIS - 1
+    for tap_count, k in enumerate(taps_ativos_idx):
+        barra_controlada = LC[k]
+        barra_k = DE[k] - 1
+        barra_m = PARA[k] - 1
 
-    tap_count = 0
+        print("Analisando barra controlada:", barra_controlada)
+        print("Conexão de trafo")
+        print("De:", barra_k + 1)
+        print("Para:", barra_m + 1)
 
-    for k, barra_controlada in enumerate(LC):
-        if barra_controlada is not None:
-            tap_count += 1
+        # Dados da linha
+        gkm = G[barra_k, barra_m]
+        bkm = B[barra_k, barra_m]
 
-            barra_k = DE[k]-1
-            barra_m = PARA[k]-1
+        # Tensões e ângulos
+        Vk = V[barra_k]
+        Vm = V[barra_m]
+        teta_k = TETA[barra_k]
+        teta_m = TETA[barra_m]
+        tap = TAP[k] if TAP[k] != 0 else 1.0
 
-            # Dados elétricos da linha
-            gkm = G[barra_k, barra_m]
-            bkm = B[barra_k, barra_m]
+        # Índices na Jacobiana
+        idx_theta_k = barra_k
+        idx_theta_m = barra_m
+        idx_v_k = NBAR + barra_k
+        idx_v_m = NBAR + barra_m
+        idx_tap = 2 * NBAR + tap_count
 
-            # Tensões e ângulos
-            Vk = V[barra_k]
-            Vm = V[barra_m]
-            teta_k = TETA[barra_k]
-            teta_m = TETA[barra_m]
+        # Derivadas das potências em relação ao TAP
+        dPk_da = 2 * tap * Vk**2 * gkm - Vk * Vm * (gkm * np.cos(teta_k - teta_m) + bkm * np.sin(teta_k - teta_m))
+        dPm_da = -Vk * Vm * (gkm * np.cos(teta_m - teta_k) - bkm * np.sin(teta_m - teta_k))
+        dQk_da = -2 * tap * Vk**2 * bkm + Vk * Vm * (bkm * np.cos(teta_k - teta_m) - gkm * np.sin(teta_k - teta_m))
+        dQm_da = Vk * Vm * (bkm * np.cos(teta_m - teta_k) + gkm * np.sin(teta_m - teta_k))
 
-            # Atuação do limite
-            tap = TAP[k] if TAP[k] != 0 else 1.0
+        # Preenchimento na Jacobiana
+        # dPk/da
+        J[idx_theta_k, idx_tap] += dPk_da
 
-            # Índices na Jacobiana
-            idx_theta_k = barra_k
-            idx_theta_m = barra_m
-            idx_v_k = NBAR + barra_k # Considera que existem todas as linhas na matriz
-            idx_v_m = NBAR + barra_m # Considera que existem todas as linhas na matriz
+        # dPm/da
+        J[idx_theta_m, idx_tap] += dPm_da
 
-            idx_tap = idx_tap_inicial + tap_count
+        # dQk/da (se barra k for PQ)
+        J[idx_v_k, idx_tap] += dQk_da
 
-            # Cálculo das derivadas
-            dPk_da = 2 * tap * Vk**2 * gkm - Vk * Vm * (gkm * np.cos(teta_k - teta_m) + bkm * np.sin(teta_k - teta_m))
-            dQk_da = -2 * tap * Vk**2 * bkm + Vk * Vm * (bkm * np.cos(teta_k - teta_m) - gkm * np.sin(teta_k - teta_m))
+        # dQm/da (se barra m for PQ)
+        J[idx_v_m, idx_tap] += dQm_da
 
-            dPm_da = -Vk * Vm * gkm * np.cos(teta_m - teta_k) + Vk * Vm * bkm * np.sin(teta_m - teta_k) #troquei o sinal de +bkm para -bkm 
-            dQm_da = Vk * Vm * (bkm * np.cos(teta_m - teta_k) + gkm * np.sin(teta_m - teta_k))#troquei o sinal de -gkm para +gkm
+        # dV/dV (se barra m for PQ)
+        # A tensão barra controlada fica na segunda parte do delta y, que foi montado concatenando Delta P e em seguida Delta Q
+        J[idx_tap, NBAR + (barra_controlada-1)] += 1 # Feito considerando que a parte superior é uma constante
 
-            # Preenchimento na Jacobiana
-            # dPk/da
-            J[idx_theta_k, idx_tap] += dPk_da
-
-            # dPm/da
-            J[idx_theta_m, idx_tap] += dPm_da
-
-            # dQk/da (se barra k for PQ)
-            J[idx_v_k, idx_tap] += dQk_da
-
-            # dQm/da (se barra m for PQ)
-            J[idx_v_m, idx_tap] += dQm_da
-
-            # dV/dV (se barra m for PQ)
-            # A tensão barra controlada fica na segunda parte do delta y, que foi montado concatenando Delta P e em seguida Delta Q
-            J[idx_tap, NBAR + (barra_controlada-1)] += 1 # Feito considerando que a parte superior é uma constante
-
-            # As linhas extras na Jacobiana para as equações de controle podem ser incluídas aqui
-            # Exemplo: manter Vm = valor desejado
 
     return J
 
@@ -535,11 +343,10 @@ def atualiza_taps(TAPS, delta_SOLUCAO, LC, NBAR):
     - TAPS atualizado
     """
     taps_controlados_idx = [i for i, barra in enumerate(LC) if barra is not None]
-    taps_controlados = len(taps_controlados_idx)
+    print(taps_controlados_idx)
 
     for pos, idx_tap in enumerate(taps_controlados_idx):
-        idx = len(delta_SOLUCAO) - taps_controlados + pos
-        TAPS[idx_tap] += delta_SOLUCAO[idx]
+        TAPS[idx_tap] += delta_SOLUCAO[2*NBAR + pos]
         print(f"Tap {idx_tap} atualizado para {TAPS[idx_tap]}")
 
     return TAPS
@@ -580,7 +387,7 @@ def relatorio_transformadores(DE, PARA, FLUXO, TAP, LC, nomes_barras=None):
 
 
 def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_max = 20, printar_relatorio=True):
-    tolerancia_tensao = tolerancia/10
+    tolerancia_tensao = tolerancia/0.1
     # Número de barras (NBAR)
     NBAR = len(DBAR)  # número de linhas da lista DBAR
 
@@ -647,6 +454,11 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         Pesp = PG - PD
         Qesp = QG - QD
 
+        # if proximo_convergencia:
+        #     Controle_CTAP = True
+        # else:
+        #     Controle_CTAP = False
+
         # Montagem da matriz Ybarra, somente se na primeira iteração ou se houver algum controle ativo
         Ybarra, G, B = montar_ybarra(NBAR, NLIN, DE, PARA, R, X, BSH, TAP, DEFAS, SHUNT)
 
@@ -678,19 +490,19 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         # Vetor de resíduos (coluna)
         delta_Y = np.concatenate([delta_P, delta_Q]).reshape(-1, 1)
         if Controle_CTAP:
-            delta_Y = adiciona_controles_delta_y(delta_Y, V, V_ESP, LC)
-            # taps_controlados = sum(1 for barra in LC if barra is not None)
-            # deltaV = np.zeros(taps_controlados)
+            # delta_Y = adiciona_controles_delta_y(delta_Y, V, V_ESP, LC)
+            taps_controlados = sum(1 for barra in LC if barra is not None)
+            deltaV = np.zeros(taps_controlados)
 
-            # for tap_count, barra_controlada in enumerate([b for b in LC if b is not None]):
-            #     deltaV[tap_count] = V_ESP[barra_controlada - 1] - V[barra_controlada - 1]
+            for tap_count, barra_controlada in enumerate([b for b in LC if b is not None]):
+                deltaV[tap_count] = V_ESP[barra_controlada - 1] - V[barra_controlada - 1]
 
-            # deltaV = deltaV.reshape(-1, 1)
+            deltaV = deltaV.reshape(-1, 1)
 
-            # # Erro máximo (critério de convergência)
-            # MAX_V = np.max(np.abs(deltaV))
-            # indice_MAX_V = np.argmax(np.abs(deltaV))
-            # print('Mismatch máximo está em', MAX_V, 'no item', indice_MAX_V)
+            # Erro máximo (critério de convergência)
+            MAX_V = np.max(np.abs(deltaV))
+            indice_MAX_V = np.argmax(np.abs(deltaV))
+            print('Mismatch máximo está em', MAX_V, 'no item', indice_MAX_V)
 
         # Erro máximo (critério de convergência)
         MAX_Y = np.max(np.abs(delta_Y))
@@ -698,11 +510,16 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         print('Mismatch máximo está em', MAX_Y, 'no item', indice_MAX_Y)
 
         if MAX_Y < tolerancia:
-            convergiu = True
-            break
+          convergiu = True
+          if Controle_CTAP:
+            if MAX_V < tolerancia_tensao:
+                convergiu = True
+                break
+            else:
+                break
 
-        # if Controle_CTAP:
-        #     delta_Y = np.concatenate([delta_Y, deltaV]).reshape(-1, 1)
+        if Controle_CTAP:
+            delta_Y = np.concatenate([delta_Y, deltaV]).reshape(-1, 1)
 
         i += 1  # Incrementa o contador de iterações
         print("Iniciando iteracao ", i)
@@ -711,6 +528,13 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         Jac = montar_matriz_jacobiana(NBAR, V, TETA, Pcalc, Qcalc, G, B, TIPO)
         if Controle_CTAP:
             Jac = adicionar_controles_jacobiana(NBAR, Jac, V, TETA, G, B, TIPO, TAP, DE, PARA, BC, LC)
+
+        # NOTA:
+        # PENSO EM TALVEZ ADICIONAR INFORMAÇÕES APÓS MONTAR A JACOBIANA PADRÃO
+        # ELA SEMPRE TERÁ SEU PADRÃO IGUAL, SÓ ALTERADO PELA Y BARRA QUE JÁ FOI ALTERADA ANTES
+        # DESSA FORMA, PODEMOS SEMPRE ADICIONAR OS CONTROLES EM SEGUIDA
+        # TALVEZ COM UMA FUNÇÃO adicionar_controles_jacobiana
+        # Também deve ser adicionado um valor ao delta_y
 
         # delta_Y deve ser um vetor coluna numpy com dimensão (2*NBAR, 1)
         # Jac é a matriz Jacobiana 2*NBAR x 2*NBAR
@@ -796,9 +620,7 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
 
         # Imprime linha a linha formatada
         for linha in dados_barra:
-            print(f'\t{int(linha[0]):<4}\t{int(linha[1]):<6}\t{linha[2]:<7.3f}\t{linha[3]:<10.1f}\t'
-                f'{linha[4]:<10.1f}\t{linha[5]:<10.1f}\t{linha[6]:<10.1f}\t{linha[7]:<10.1f}\t'
-                f'{linha[8]:<10.1f}\t{linha[9]:<10.1f}')
+            print(f'{int(linha[0]):<4} {int(linha[1]):<6} {linha[2]:<8.3f} {linha[3]:<8.2f}{linha[4]:<8.2f} {linha[5]:<8.2f} {linha[6]:<8.2f} {linha[7]:<8.2f}  {linha[8]:<8.2f} {linha[9]:<8.2f}')
 
         print('='*108)
         print('Fluxo de Potência Ativa entre as Barras')
