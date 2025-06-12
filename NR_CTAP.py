@@ -385,6 +385,26 @@ def relatorio_transformadores(DE, PARA, FLUXO, TAP, LC, nomes_barras=None):
     print("X-------X-----------------X-----X-----------------X-----X-------X-------X--------X")
     return
 
+def relatorio_barras(DBAR, V, TETA, Pcalc, Qcalc, PD, QD, QN, QM, nomes_barras=None, Pbase=1.0):
+    # Corrige caso DBAR esteja mal aninhado
+
+    print("X--------------------------X  F L U X O  D E  C A R G A  X---------------------------X")
+    print(f'{"Nº":<4} {"BARRA":<18} {"V (pu)":>7} {"Ângulo":>8} {"PG":>10} {"QG":>10} {"Qmin":>10} {"Qmax":>10} {"PD":>10} {"QD":>10}')
+    print('-'*108)
+
+    for k in range(len(DBAR)):
+        nome = nomes_barras[k] if nomes_barras else f"Barra-{k+1:02d}"
+        tensao = V[k]
+        angulo = np.degrees(TETA[k])
+        pg = (Pcalc[k] + PD[k]) * Pbase
+        qg = (Qcalc[k] + QD[k]) * Pbase
+        pd = PD[k] * Pbase
+        qd = QD[k] * Pbase
+        qmin = QN[k] * Pbase
+        qmax = QM[k] * Pbase
+
+        print(f'{k+1:<4} {nome:<18} {tensao:>7.4f} {angulo:>8.2f} {pg:>10.2f} {qg:>10.2f} {qmin:>10.2f} {qmax:>10.2f} {pd:>10.2f} {qd:>10.2f}')
+    return
 
 def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_max = 20, printar_relatorio=True):
     tolerancia_tensao = tolerancia/0.1
@@ -593,48 +613,19 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
             FLUXO[k, 4] = abs(fluxo_2)
             FLUXO[k, 5] = reat_2  # fluxo reativo reverso
 
-    if not convergiu:
-        print('O caso Divergiu')
-    else:
-        print('='*108)
-        print(f'- Número de Iterações: {i}')
-        print('='*108)
-        print(f'- Resíduo Máximo: {MAX_Y:.6g} < Tolerância de {tolerancia:.3f}')
-        print('='*108)
-        print('- Dados Finais de Barra (pu):\n')
-        print(f'{"Nº":>2} {"Tipo":>4} {"V":>6} {"Ang(°)":>8} {"PG":>8} {"QG":>8} {"Qmín":>8} {"Qmáx":>8} {"Pd":>8} {"Qd":>8}')
-       
-        # Monta matriz de dados para impressão
-        dados_barra = np.column_stack((
-            np.arange(1, NBAR+1),              # Nº
-            TIPO,                             # Tipo
-            V,                                # Tensão
-            TETA * 180 / np.pi,               # Ângulo em graus
-            (Pcalc + PD) * Pbase,             # PG
-            (Qcalc + QD) * Pbase,             # QG
-            QN * Pbase,                      # Qmín
-            QM * Pbase,                      # Qmáx
-            PD * Pbase,                      # Pdemanda
-            QD * Pbase                       # Qdemanda
-        ))
-
-        # Imprime linha a linha formatada
-        for linha in dados_barra:
-            print(f'{int(linha[0]):<4} {int(linha[1]):<6} {linha[2]:<8.3f} {linha[3]:<8.2f}{linha[4]:<8.2f} {linha[5]:<8.2f} {linha[6]:<8.2f} {linha[7]:<8.2f}  {linha[8]:<8.2f} {linha[9]:<8.2f}')
-
-        print('='*108)
-        print('Fluxo de Potência Ativa entre as Barras')
-        print('='*108)
-        print(f'\t{"DE":<6}\t{"PARA":<6}\t{"DE-PARA":<10}\t{"PARA-DE":<10}\t{"FLUXO MAX":<10}\t{"FOLGA":<10}')
-
-        # Imprime dados de fluxo: DE, PARA, FLUXO[:,1], FLUXO[:,2], FLUXO[:,3], FLUXO[:,4]
-        for i in range(len(DE)):
-            print(f'\t{int(DE[i]):<6}\t{int(PARA[i]):<6}\t{FLUXO[i,0]:<10.4f}\t{FLUXO[i,1]:<10.4f}\t{FLUXO[i,2]:<10.4f}\t{FLUXO[i,3]:<10.4f}')
-
-        print('='*108)
-
-        if printar_relatorio:
+    if printar_relatorio:
+        if not convergiu:
+            print('X--------------------------X  F L U X O  D E  C A R G A  X---------------------------X')
+            print('O caso D I V E R G I U após', i, 'iterações.')
+            print('X-------------------------------------------------------------------------------X')
+        else:
+            print('X--------------------------X  F L U X O  D E  C A R G A  X---------------------------X')
+            print(f'→ Convergência obtida em {i} iterações')
+            print(f'→ Resíduo Máximo: {MAX_Y:.6g} < Tolerância de {tolerancia:.6f}')
+            print('X-------------------------------------------------------------------------------X')
             nomes = [f"Barra-{i+1:02d}" for i in range(NBAR)]
+            relatorio_barras(DBAR, V, TETA, Pcalc, Qcalc, PD, QD, QN, QM, nomes, Pbase=100)
+            print('X-------------------------------------------------------------------------------X')
             relatorio_transformadores(DE, PARA, FLUXO, TAP, LC, nomes_barras=nomes)
 
     return V, TETA, FLUXO
