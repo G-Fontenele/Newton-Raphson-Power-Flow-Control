@@ -412,6 +412,10 @@ def newton_raphson_integrado(DBAR, DLIN, Pbase, tolerancia, tol_Vcontrolada, ite
     erro_ctrl = float('inf')
     Pcalc, Qcalc = None, None
 
+    if not Controle_PV:
+        QN = np.full(NBAR, -999.0)
+        QM = np.full(NBAR, 999.0)
+        
     if printar_relatorio:
         print("Iniciando processo iterativo do Fluxo de Potência Newton-Raphson...")
 
