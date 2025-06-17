@@ -192,11 +192,10 @@ def montar_ybarra(NBAR, NLIN, DE, PARA, R, X, BSH, TAP, DEFAS, SHUNT):
     return Ybarra, np.real(Ybarra), np.imag(Ybarra)
 
 
-# def montar_matriz_jacobiana_aumentada(NBAR, V, TETA, Pcalc, Qcalc, G, B, TIPO, controles, Ch):
 def montar_matriz_jacobiana_aumentada(NBAR, V, TETA, Pcalc, Qcalc, G, B, TIPO, R, X, controles, Ch):
     """
     Monta a matriz Jacobiana aumentada, incorporando as equações de todos os
-    controles ativos (CREM e CTAP). Agora usa a matriz Ch para o controle REM.
+    controles ativos (CREM e CTAP). Matriz Ch é utilizada para o controle REM.
     """
     rem_info = controles['rem']
     tap_info = controles['tap']
@@ -253,24 +252,22 @@ def montar_matriz_jacobiana_aumentada(NBAR, V, TETA, Pcalc, Qcalc, G, B, TIPO, R
                 idx_controlada = tap_info['controladas'][i] - 1
                 
                 tap = tap_info['taps'][ramal_idx]
-                
-                # As derivadas parciais aqui podem precisar de revisão.
-                # Usando uma aproximação onde G e B são constantes (sem tap), para simplificar.
-                # O ideal é recalcular G e B em função do tap a cada iteração.
-                # No entanto, mantendo a sua formulação original:
+
+
+                ##Sistema de equações dP/da e dQ/da Adequação matemática encontrada para viabilizar a convergência do caso 5.
+                ## Para utilizá-las, comentar linhas de código similares logo abaixo.
                 # ykm = 1 / (0.01*DLIN[ramal_idx][3] + 1j*0.01*DLIN[ramal_idx][4]) # r e x em pu
                 # gkm_val, bkm_val = np.real(ykm), np.imag(ykm)
+                # dPk_da = -2*V[k_idx]**2*gkm_val/tap**3 + V[k_idx]*V[m_idx]/tap**2 * (gkm_val*np.cos(TETA[k_idx]-TETA[m_idx]) + bkm_val*np.sin(TETA[k_idx]-TETA[m_idx]))
+                # dQk_da = 2*V[k_idx]**2*bkm_val/tap**3 - V[k_idx]*V[m_idx]/tap**2 * (gkm_val*np.sin(TETA[k_idx]-TETA[m_idx]) - bkm_val*np.cos(TETA[k_idx]-TETA[m_idx]))
+                # dPm_da = -V[k_idx]*V[m_idx]/tap**2 * (gkm_val*np.cos(TETA[k_idx]-TETA[m_idx]) + bkm_val*np.sin(TETA[k_idx]-TETA[m_idx]))
+                # dQm_da = -V[k_idx]*V[m_idx]/tap**2 * (gkm_val*np.sin(TETA[k_idx]-TETA[m_idx]) - bkm_val*np.cos(TETA[k_idx]-TETA[m_idx]))
                 
                 # Dados da linha
                 gkm = G[k_idx, m_idx]
                 bkm = B[k_idx, m_idx]
 
-                idx_var_tap = 2 * NBAR + N_REM + i
-                
-                # dPk_da = -2*V[k_idx]**2*gkm_val/tap**3 + V[k_idx]*V[m_idx]/tap**2 * (gkm_val*np.cos(TETA[k_idx]-TETA[m_idx]) + bkm_val*np.sin(TETA[k_idx]-TETA[m_idx]))
-                # dQk_da = 2*V[k_idx]**2*bkm_val/tap**3 - V[k_idx]*V[m_idx]/tap**2 * (gkm_val*np.sin(TETA[k_idx]-TETA[m_idx]) - bkm_val*np.cos(TETA[k_idx]-TETA[m_idx]))
-                # dPm_da = -V[k_idx]*V[m_idx]/tap**2 * (gkm_val*np.cos(TETA[k_idx]-TETA[m_idx]) + bkm_val*np.sin(TETA[k_idx]-TETA[m_idx]))
-                # dQm_da = -V[k_idx]*V[m_idx]/tap**2 * (gkm_val*np.sin(TETA[k_idx]-TETA[m_idx]) - bkm_val*np.cos(TETA[k_idx]-TETA[m_idx]))
+                idx_var_tap = 2 * NBAR + N_REM + i             
 
                 # Derivadas das potências em relação ao TAP
                 Vk = V[k_idx]
@@ -598,7 +595,7 @@ def newton_raphson_integrado(DBAR, DLIN, Pbase, tolerancia, tol_Vcontrolada, ite
 
                 TAP[ramal_idx] = novo_tap
 
-        # NOVO CÓDIGO PARA MONITORAR TAPS
+        # CÓDIGO PARA MONITORAR TAPS
         if tap_info['ativo'] and tap_info['n_controle'] > 0 and printar_relatorio:
             print("Taps atualizados nesta iteração:")
             for n in range(tap_info['n_controle']):
