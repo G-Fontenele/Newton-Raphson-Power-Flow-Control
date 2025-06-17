@@ -279,9 +279,9 @@ def montar_matriz_jacobiana_aumentada(NBAR, V, TETA, Pcalc, Qcalc, G, B, TIPO, R
                 teta_m = TETA[m_idx]
 
                 dPk_da = 2 * tap * Vk**2 * gkm - Vk * Vm * (gkm * np.cos(teta_k - teta_m) + bkm * np.sin(teta_k - teta_m))
-                dPm_da = -Vk * Vm * (gkm * np.cos(teta_k - teta_m) + bkm * np.sin(teta_k - teta_m))
+                dPm_da = -Vk * Vm * (gkm * np.cos(teta_m - teta_k) - bkm * np.sin(teta_m - teta_k))
                 dQk_da = -2 * tap * Vk**2 * bkm + Vk * Vm * (bkm * np.cos(teta_k - teta_m) - gkm * np.sin(teta_k - teta_m))
-                dQm_da = Vk * Vm * (bkm * np.cos(teta_k - teta_m) + gkm * np.sin(teta_k - teta_m))
+                dQm_da = Vk * Vm * (bkm * np.cos(teta_m - teta_k) + gkm * np.sin(teta_m - teta_k))
 
                 Jac[k_idx, idx_var_tap] = dPk_da
                 Jac[NBAR + k_idx, idx_var_tap] = dQk_da
