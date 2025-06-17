@@ -549,6 +549,8 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
         if Controle_CTAP:
             Jac = adicionar_controles_jacobiana(NBAR, Jac, V, TETA, G, B, TIPO, TAP, DE, PARA, BC, LC)
 
+        print_jacobiana_bonita(Jac, 2)
+
         # NOTA:
         # PENSO EM TALVEZ ADICIONAR INFORMAÇÕES APÓS MONTAR A JACOBIANA PADRÃO
         # ELA SEMPRE TERÁ SEU PADRÃO IGUAL, SÓ ALTERADO PELA Y BARRA QUE JÁ FOI ALTERADA ANTES
@@ -630,4 +632,4 @@ def newton_raphson_flow(DBAR, DLIN, Pbase = 1.0, tolerancia = 0.003, iteracao_ma
 
     return V, TETA, FLUXO
 
-tensoes, thetas, fluxos = newton_raphson_flow(DBAR, DLIN, Pbase = Pbase, tolerancia = tol, iteracao_max=20)
+tensoes, thetas, fluxos = newton_raphson_flow(DBAR, DLIN, Pbase = Pbase, tolerancia = tol, iteracao_max=2)
